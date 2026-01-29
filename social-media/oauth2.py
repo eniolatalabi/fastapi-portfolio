@@ -5,16 +5,11 @@ from fastapi import Depends, status, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, timezone
+from .config import settings
 
-# 1. SECRET_KEY: A secret text used to sign the JWT (keep this safe!)
-# You can generate a random one by running `openssl rand -hex 32` in terminal
-SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7" 
-
-# 2. ALGORITHM: How we encrypt the data
-ALGORITHM = "HS256"
-
-# 3. EXPIRATION: How long the token lasts (e.g., 30 minutes)
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
+SECRET_KEY = settings.secret_key
+ALGORITHM = settings.algorithm
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
 
 # This tells FastAPI that the route to get a token is "/login"
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl='login')

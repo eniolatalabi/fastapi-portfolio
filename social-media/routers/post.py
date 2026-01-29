@@ -11,11 +11,20 @@ router = APIRouter(
 
 # Get ALL posts
 @router.get("", response_model=List[schemas.PostResponse])
-async def get_posts(db: Session = Depends(get_db)):
-    # Optional: You could add .filter(models.Post.owner_id == current_user.id) 
-    # if you only wanted users to see their OWN posts. 
+@router.get("", response_model=List[schemas.PostResponse])
+async def get_posts(
+    db: Session = Depends(get_db), 
+    limit: int = 10,       # Default: 10 posts
+    skip: int = 0,         # Default: Skip none (Page 1)
+    search: Optional[str] = "" # Default: Empty search
+):
+    # Optional: we could add .filter(models.Post.owner_id == current_user.id) 
+    # if we only wanted users to see their OWN posts. 
     # But for a social feed, .all() is correct.
-    posts = db.query(models.Post).all()
+# Construct the query
+    posts = db.query(models.Post).filter(
+        models.Post.title.contains(search) # 1. Filter by search keyword
+    ).limit(limit).offset(skip).all()      # 2. Limit & Skip
     return posts
 
 
