@@ -8,7 +8,7 @@ from typing import Optional
 class PostBase(BaseModel):
     title: str
     content: str
-    published: bool = True
+    published: bool = True 
 
 
 # Model for CREATING posts (Input validation)
@@ -24,6 +24,7 @@ class PostResponse(BaseModel):
     content: str
     published: bool
     created_at: datetime
+    owner_id : int
     
     # Config to allow Pydantic to read from ORM objects or Dictionaries
     class Config:
