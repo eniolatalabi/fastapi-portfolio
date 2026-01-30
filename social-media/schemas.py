@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
 from datetime import datetime
 from typing import Optional
 
@@ -61,3 +61,16 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     id: Optional[str] = None
+
+#Vote Schemas
+
+class Vote(BaseModel):
+    post_id: int
+    dir: int # 1 = Like, 0 = Unlike
+
+    # Ensure user only sends 0 or 1
+    @field_validator('dir')
+    def validate_dir(cls, v):
+        if v not in [0, 1]:
+            raise ValueError('dir must be 0 (unlike) or 1 (like)')
+        return v
