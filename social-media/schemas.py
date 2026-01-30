@@ -17,7 +17,7 @@ class PostCreate(PostBase):
 
 
 # Output for returning a user
-# Notice we DO NOT include 'password' here. This keeps it secure.
+# we DO NOT include 'password' here. This keeps it secure.
 class UserResponse(BaseModel):
     id: int
     email: EmailStr
@@ -26,9 +26,9 @@ class UserResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 # Model for RETURNING posts (Output serialization)
 # Reordered fields to match Database Schema exactly.
-# Order: id -> title -> content -> published -> created_at
 class PostResponse(BaseModel):
     id: int
     title: str
@@ -42,12 +42,21 @@ class PostResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
+# Model for Post with Vote Count
+# This expects the query to return a tuple: (Post Object, Votes Count)
+class PostOut(BaseModel):
+    Post: PostResponse
+    votes: int
+
+    class Config:
+        from_attributes = True
+
+
 # Input for creating a user
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
-
-
 
 
 class UserLogin(BaseModel):
@@ -59,11 +68,12 @@ class Token(BaseModel):
     access_token: str
     token_type: str
 
+
 class TokenData(BaseModel):
     id: Optional[str] = None
 
-#Vote Schemas
 
+# Vote Schemas
 class Vote(BaseModel):
     post_id: int
     dir: int # 1 = Like, 0 = Unlike
