@@ -8,12 +8,12 @@ from sqlalchemy import pool
 from alembic import context
 
 # ----------------------------------------------------------------
-# FIX: ADD PARENT DIRECTORY TO PATH
+#PARENT DIRECTORY TO PATH
 # ----------------------------------------------------------------
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 # ----------------------------------------------------------------
-# FIX: IMPORTS
+# IMPORTS
 # ----------------------------------------------------------------
 from social_media.models import Base 
 from social_media.config import settings 
@@ -24,7 +24,7 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # ----------------------------------------------------------------
-# FIX: OVERRIDE DB URL
+# OVERRIDE DB URL
 # ----------------------------------------------------------------
 config.set_main_option(
     "sqlalchemy.url", 
