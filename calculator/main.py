@@ -6,10 +6,9 @@ app = FastAPI()
 async def root():
     return {"message": "hello world"}
 
-
 @app.get("/add")
 async def add(a: int, b: int):
-    return { a + b}
+    return {"result": a + b} 
 
 @app.get("/subtract")
 def subtract(a: int, b: int):
