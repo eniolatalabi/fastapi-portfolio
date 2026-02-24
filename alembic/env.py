@@ -1,14 +1,11 @@
 import sys
 import os
 from logging.config import fileConfig
-
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
-
+from sqlalchemy import engine_from_config, pool
 from alembic import context
 
 # ----------------------------------------------------------------
-#PARENT DIRECTORY TO PATH
+# PARENT DIRECTORY TO PATH
 # ----------------------------------------------------------------
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
@@ -24,17 +21,26 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # ----------------------------------------------------------------
-# OVERRIDE DB URL
+# OVERRIDE DB URL (Cloud-Aware Fix)
 # ----------------------------------------------------------------
-config.set_main_option(
-    "sqlalchemy.url", 
-    f"postgresql+psycopg2://{settings.database_username}:{settings.database_password}@{settings.database_hostname}:{settings.database_port}/{settings.database_name}"
-)
+# Priority 1: Use full DATABASE_URL (Render)
+if settings.database_url:
+    sqlalchemy_url = settings.database_url
+# Priority 2: Use individual local credentials
+else:
+    sqlalchemy_url = f"postgresql://{settings.database_username}:{settings.database_password}@{settings.database_hostname}:{settings.database_port}/{settings.database_name}"
+
+# Ensure it uses the psycopg2 driver for Alembic
+if sqlalchemy_url.startswith("postgres://"):
+    sqlalchemy_url = sqlalchemy_url.replace("postgres://", "postgresql+psycopg2://", 1)
+elif sqlalchemy_url.startswith("postgresql://"):
+    sqlalchemy_url = sqlalchemy_url.replace("postgresql://", "postgresql+psycopg2://", 1)
+
+config.set_main_option("sqlalchemy.url", sqlalchemy_url)
 
 target_metadata = Base.metadata
 
 def run_migrations_offline() -> None:
-    """Run migrations in 'offline' mode."""
     url = config.get_main_option("sqlalchemy.url")
     context.configure(
         url=url,
@@ -42,29 +48,21 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
     )
-
     with context.begin_transaction():
         context.run_migrations()
 
-
 def run_migrations_online() -> None:
-    """Run migrations in 'online' mode."""
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
-
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
-
+        context.configure(connection=connection, target_metadata=target_metadata)
         with context.begin_transaction():
             context.run_migrations()
-
 
 if context.is_offline_mode():
     run_migrations_offline()
 else:
-    run_migrations_online() 
+    run_migrations_online()
