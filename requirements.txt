@@ -32,6 +32,8 @@ fastapi==0.128.0
     # via fastapi-backend
 greenlet==3.3.0 ; platform_machine == 'AMD64' or platform_machine == 'WIN32' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'ppc64le' or platform_machine == 'win32' or platform_machine == 'x86_64'
     # via sqlalchemy
+gunicorn==25.1.0
+    # via fastapi-backend
 h11==0.16.0
     # via uvicorn
 idna==3.11
@@ -42,6 +44,8 @@ mako==1.3.10
     # via alembic
 markupsafe==3.0.3
     # via mako
+packaging==26.0
+    # via gunicorn
 passlib==1.7.4
     # via fastapi-backend
 psycopg2-binary==2.9.11
