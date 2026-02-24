@@ -1,6 +1,11 @@
 from pydantic_settings import BaseSettings
+from typing import Optional
 
 class Settings(BaseSettings):
+    # This is the new priority field for Render
+    database_url: Optional[str] = None
+    
+    #existing local fields
     database_hostname: str
     database_port: str
     database_password: str
