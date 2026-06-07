@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
 from datetime import datetime
 from typing import Optional
 
@@ -21,10 +21,10 @@ class PostCreate(PostBase):
 class UserResponse(BaseModel):
     id: int
     email: EmailStr
+    phone_number: Optional[str] = None
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Model for RETURNING posts (Output serialization)
@@ -39,8 +39,7 @@ class PostResponse(BaseModel):
     owner: UserResponse
     
     # Config to allow Pydantic to read from ORM objects or Dictionaries
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Model for Post with Vote Count
@@ -49,14 +48,21 @@ class PostOut(BaseModel):
     Post: PostResponse
     votes: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Input for creating a user
+class UserUpdate(BaseModel):
+    """Partial update of the authenticated user's own account."""
+    email: Optional[EmailStr] = None
+    password: Optional[str] = None
+    phone_number: Optional[str] = None
+
+
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
+    phone_number: Optional[str] = None
 
 
 class UserLogin(BaseModel):
