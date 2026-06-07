@@ -1,12 +1,20 @@
-from fastapi import APIRouter, Depends, status, HTTPException, Response
+from fastapi import (APIRouter, Depends, HTTPException, Request, Response,
+                     status)
 from fastapi.security.oauth2 import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from .. import database, schemas, models, utils, oauth2
+
+from .. import database, models, oauth2, schemas, utils
+from ..config import settings
+from ..limiter import limiter
 
 router = APIRouter(tags=['Authentication'])
 
+
 @router.post('/login', response_model=schemas.Token)
-def login(user_credentials: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(database.get_db)):
+@limiter.limit(settings.login_rate_limit)
+def login(request: Request,
+          user_credentials: OAuth2PasswordRequestForm = Depends(),
+          db: Session = Depends(database.get_db)):
     
     # OAuth2PasswordRequestForm carries the email in its username field.
     user = db.query(models.User).filter(
@@ -26,4 +34,26 @@ def login(user_credentials: OAuth2PasswordRequestForm = Depends(), db: Session =
         raise invalid_credentials
 
     access_token = oauth2.create_access_token(data={"user_id": user.id})
-    return {"access_token": access_token, "token_type": "bearer"}
+    refresh_token = oauth2.create_refresh_token(user.id, db)
+    return {"access_token": access_token, "refresh_token": refresh_token,
+            "token_type": "bearer"}
+
+
+@router.post('/refresh', response_model=schemas.Token)
+def refresh(body: schemas.RefreshRequest,
+            db: Session = Depends(database.get_db)):
+    """Rotate a refresh token: the presented token is revoked and a
+    fresh access/refresh pair is issued."""
+    user_id = oauth2.consume_refresh_token(body.refresh_token, db)
+    access_token = oauth2.create_access_token(data={"user_id": user_id})
+    refresh_token = oauth2.create_refresh_token(user_id, db)
+    return {"access_token": access_token, "refresh_token": refresh_token,
+            "token_type": "bearer"}
+
+
+@router.post('/logout', status_code=status.HTTP_204_NO_CONTENT)
+def logout(body: schemas.RefreshRequest,
+           db: Session = Depends(database.get_db)):
+    """Revoke the presented refresh token, ending that session."""
+    oauth2.consume_refresh_token(body.refresh_token, db)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
