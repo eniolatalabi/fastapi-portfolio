@@ -11,7 +11,6 @@ SECRET_KEY = settings.secret_key
 ALGORITHM = settings.algorithm
 ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
 
-# This tells FastAPI that the route to get a token is "/login"
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl='login')
 
 def create_access_token(data: dict):
@@ -34,13 +33,11 @@ def verify_access_token(token: str, credentials_exception):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         
-        # Extract the 'user_id' we put in the payload earlier
-        id: str = payload.get("user_id")
-        
-        if id is None:
+        token_user_id = payload.get("user_id")
+        if token_user_id is None:
             raise credentials_exception
-            
-        token_data = schemas.TokenData(id=str(id))
+
+        token_data = schemas.TokenData(id=str(token_user_id))
         
     except JWTError:
         raise credentials_exception
@@ -59,7 +56,12 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     )
     
     token = verify_access_token(token, credentials_exception)
-    
+
     user = db.query(models.User).filter(models.User.id == token.id).first()
-    
+
+    # A syntactically valid token for a deleted account must not yield
+    # None here, or every downstream current_user.id access crashes.
+    if user is None:
+        raise credentials_exception
+
     return user

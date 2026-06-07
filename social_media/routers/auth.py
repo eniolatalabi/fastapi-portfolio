@@ -8,27 +8,22 @@ router = APIRouter(tags=['Authentication'])
 @router.post('/login', response_model=schemas.Token)
 def login(user_credentials: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(database.get_db)):
     
-    # 1. Find the user by email
-    # OAuth2PasswordRequestForm stores the email in a field called 'username'
-    user = db.query(models.User).filter(models.User.email == user_credentials.username).first()
+    # OAuth2PasswordRequestForm carries the email in its username field.
+    user = db.query(models.User).filter(
+        models.User.email == user_credentials.username).first()
 
+    # Same response for unknown email and wrong password: failed
+    # authentication is 401, and the message must not reveal which
+    # half of the credentials was wrong.
+    invalid_credentials = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, 
-            detail="Invalid Credentials"
-        )
+        raise invalid_credentials
+    if not utils.verify_password(user_credentials.password, user.password):
+        raise invalid_credentials
 
-    # 2. Verify the password
-    if not utils.verify(user_credentials.password, user.password):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, 
-            detail="Invalid Credentials"
-        )
-
-    # 3. Create the Token
-    # We embed the user's ID into the token so we know who they are later
     access_token = oauth2.create_access_token(data={"user_id": user.id})
-
-    # 4. Return the Token
-    # Must match the 'Token' schema we created earlier
     return {"access_token": access_token, "token_type": "bearer"}
