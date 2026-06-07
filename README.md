@@ -129,7 +129,7 @@ check path `/health`, and environment variables `DATABASE_URL`,
 origin. Run `alembic upgrade head` against the production database
 after the first deploy and after any migration.
 
-Live API: pending deployment
+Live API: https://fastapi-portfolio-leme.onrender.com/docs
 
 ## Calculator API
 
