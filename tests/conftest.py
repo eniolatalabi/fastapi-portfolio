@@ -19,6 +19,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from social_media.database import Base, get_db
+from social_media.limiter import limiter
 from social_media.main import app
 
 test_engine = create_engine(
@@ -43,6 +44,9 @@ app.dependency_overrides[get_db] = override_get_db
 
 @pytest.fixture()
 def client():
+    # The rate limiter's in-memory storage outlives requests; reset it
+    # so tests stay isolated and the suite's many logins never collide.
+    limiter.reset()
     Base.metadata.create_all(bind=test_engine)
     yield TestClient(app)
     Base.metadata.drop_all(bind=test_engine)

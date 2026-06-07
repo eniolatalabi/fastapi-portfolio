@@ -168,3 +168,103 @@ def test_vote_on_missing_post_is_404(client, auth_one):
     response = client.post("/vote/", headers=auth_one,
                            json={"post_id": 999, "dir": 1})
     assert response.status_code == 404
+
+
+def test_login_returns_refresh_token(client, user_one):
+    body = client.post("/login", data={
+        "username": user_one["email"],
+        "password": user_one["password"]}).json()
+    assert body["refresh_token"]
+    assert body["refresh_token"] != body["access_token"]
+
+
+def test_refresh_rotates_token_pair(client, user_one):
+    pair = client.post("/login", data={
+        "username": user_one["email"],
+        "password": user_one["password"]}).json()
+    rotated = client.post("/refresh",
+                          json={"refresh_token": pair["refresh_token"]})
+    assert rotated.status_code == 200
+    new_pair = rotated.json()
+    assert new_pair["refresh_token"] != pair["refresh_token"]
+    me = client.get("/users/me", headers={
+        "Authorization": f"Bearer {new_pair['access_token']}"})
+    assert me.status_code == 200
+
+
+def test_reusing_rotated_token_revokes_the_whole_family(client, user_one):
+    pair = client.post("/login", data={
+        "username": user_one["email"],
+        "password": user_one["password"]}).json()
+    new_pair = client.post("/refresh", json={
+        "refresh_token": pair["refresh_token"]}).json()
+    # Replaying the rotated token is a breach signal...
+    replay = client.post("/refresh",
+                         json={"refresh_token": pair["refresh_token"]})
+    assert replay.status_code == 401
+    # ...so even the legitimate newest token is now dead.
+    family = client.post("/refresh", json={
+        "refresh_token": new_pair["refresh_token"]})
+    assert family.status_code == 401
+
+
+def test_access_token_rejected_at_refresh_endpoint(client, user_one):
+    pair = client.post("/login", data={
+        "username": user_one["email"],
+        "password": user_one["password"]}).json()
+    response = client.post("/refresh",
+                           json={"refresh_token": pair["access_token"]})
+    assert response.status_code == 401
+
+
+def test_refresh_token_rejected_at_protected_routes(client, user_one):
+    pair = client.post("/login", data={
+        "username": user_one["email"],
+        "password": user_one["password"]}).json()
+    response = client.get("/users/me", headers={
+        "Authorization": f"Bearer {pair['refresh_token']}"})
+    assert response.status_code == 401
+
+
+def test_logout_revokes_refresh_token(client, user_one):
+    pair = client.post("/login", data={
+        "username": user_one["email"],
+        "password": user_one["password"]}).json()
+    assert client.post("/logout", json={
+        "refresh_token": pair["refresh_token"]}).status_code == 204
+    response = client.post("/refresh", json={
+        "refresh_token": pair["refresh_token"]})
+    assert response.status_code == 401
+
+
+def test_login_is_rate_limited(client, user_one):
+    for attempt in range(5):
+        response = client.post("/login", data={
+            "username": user_one["email"], "password": "wrong"})
+        assert response.status_code == 401
+    sixth = client.post("/login", data={
+        "username": user_one["email"], "password": "wrong"})
+    assert sixth.status_code == 429
+
+
+def test_requests_emit_structured_log_lines(client, caplog):
+    import logging
+    with caplog.at_level(logging.INFO, logger="social_media"):
+        client.get("/health")
+    assert "GET /health -> 200" in caplog.text
+
+
+def test_latest_post_endpoint(client, auth_one):
+    client.post("/posts", headers=auth_one,
+                json={"title": "older", "content": "x"})
+    client.post("/posts", headers=auth_one,
+                json={"title": "newest", "content": "y"})
+    response = client.get("/posts/latest")
+    assert response.status_code == 200
+    assert response.json()["Post"]["title"] == "newest"
+
+
+def test_get_user_by_id(client, user_one):
+    assert client.get(f"/users/{user_one['id']}").json()["email"] \
+        == user_one["email"]
+    assert client.get("/users/999").status_code == 404
