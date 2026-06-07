@@ -1,7 +1,7 @@
 [project]
-name = "fastapi-backend"
+name = "fastapi-portfolio"
 version = "0.1.0"
-description = "Add your description here"
+description = "JWT-authenticated social media API and utility services, with a full test suite and CI."
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
@@ -18,4 +18,17 @@ dependencies = [
     "python-multipart>=0.0.21",
     "sqlalchemy>=2.0.45",
     "uvicorn>=0.40.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest==9.0.3",
+    "httpx==0.28.1",
+]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    # Upstream notices outside this project's control:
+    "ignore:'crypt' is deprecated:DeprecationWarning",
+    "ignore:Using `httpx` with `starlette.testclient`:Warning",
 ]
