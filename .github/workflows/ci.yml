@@ -15,4 +15,4 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt -r requirements-dev.txt
       - name: Run the test suite
-        run: python -m pytest tests -q
+        run: python -m pytest tests -q --cov=social_media --cov=calculator --cov-fail-under=92
