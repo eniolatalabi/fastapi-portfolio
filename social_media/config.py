@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     secret_key: str
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
+    refresh_token_expire_days: int = 7
+
+    # Brute-force protection on /login, in slowapi notation.
+    login_rate_limit: str = "5/minute"
 
     # Comma-separated allowlist of browser origins.
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"

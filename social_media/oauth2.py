@@ -1,3 +1,6 @@
+import logging
+from uuid import uuid4
+
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
 from . import schemas, database, models
@@ -13,18 +16,74 @@ ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl='login')
 
+logger = logging.getLogger("social_media.auth")
+
 def create_access_token(data: dict):
-    """
-    Creates a JWT token with an expiration time.
-    """
+    """Create a short-lived access token, marked with its type so it
+    can never be accepted where a refresh token is expected."""
     to_encode = data.copy()
-    
-    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)   
-    to_encode.update({"exp": expire})
-    
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    
-    return encoded_jwt
+    expire = (datetime.now(timezone.utc)
+              + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    to_encode.update({"exp": expire, "type": "access"})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def create_refresh_token(user_id: int, db: Session) -> str:
+    """Issue a long-lived refresh token and record it server-side.
+
+    The database record is what makes rotation, logout, and reuse
+    detection possible; the JWT alone would be irrevocable.
+    """
+    jti = uuid4().hex
+    expires_at = (datetime.now(timezone.utc)
+                  + timedelta(days=settings.refresh_token_expire_days))
+    db.add(models.RefreshToken(jti=jti, user_id=user_id,
+                               expires_at=expires_at))
+    db.commit()
+    payload = {"user_id": user_id, "jti": jti, "type": "refresh",
+               "exp": expires_at}
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def consume_refresh_token(token: str, db: Session) -> int:
+    """Validate a refresh token and revoke it (rotation).
+
+    Reuse of an already-revoked token is treated as a breach signal:
+    every refresh token belonging to that user is revoked.
+    Returns the user id on success.
+    """
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise credentials_exception
+
+    if payload.get("type") != "refresh":
+        raise credentials_exception
+
+    record = db.query(models.RefreshToken).filter(
+        models.RefreshToken.jti == payload.get("jti")).first()
+    if record is None:
+        raise credentials_exception
+
+    if record.revoked:
+        # Rotated tokens are single-use. Seeing one again means it was
+        # stolen or replayed, so the whole family is revoked.
+        logger.warning("Refresh token reuse detected for user %s; "
+                       "revoking all sessions", record.user_id)
+        db.query(models.RefreshToken).filter(
+            models.RefreshToken.user_id == record.user_id).update(
+            {"revoked": True})
+        db.commit()
+        raise credentials_exception
+
+    record.revoked = True
+    db.commit()
+    return record.user_id
 
 def verify_access_token(token: str, credentials_exception):
     """
@@ -32,7 +91,11 @@ def verify_access_token(token: str, credentials_exception):
     """
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        
+
+        # A refresh token must never grant access to protected routes.
+        if payload.get("type") != "access":
+            raise credentials_exception
+
         token_user_id = payload.get("user_id")
         if token_user_id is None:
             raise credentials_exception
