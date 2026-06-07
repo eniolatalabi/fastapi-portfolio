@@ -1,31 +1,43 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, status
 
-app = FastAPI()
+app = FastAPI(
+    title="Calculator API",
+    description="Minimal utility service demonstrating query parameter "
+                "validation and defensive error handling.",
+)
+
 
 @app.get("/")
-async def root():
-    return {"message": "hello world"}
+def root():
+    return {"service": "Calculator API", "status": "online", "docs": "/docs"}
+
 
 @app.get("/add")
-async def add(a: int, b: int):
-    return {"result": a + b} 
+def add(a: int, b: int):
+    return {"result": a + b}
+
 
 @app.get("/subtract")
 def subtract(a: int, b: int):
     return {"result": a - b}
 
+
 @app.get("/multiply")
 def multiply(a: int, b: int):
     return {"result": a * b}
 
+
 @app.get("/divide")
 def divide(a: int, b: int):
+    if b == 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Division by zero is not allowed")
     return {"result": a / b}
+
 
 @app.get("/modulo")
 def modulo(a: int, b: int):
+    if b == 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Modulo by zero is not allowed")
     return {"result": a % b}
-
-@app.get("/square")
-def square(a: int):
-    return {"result": a**2}
